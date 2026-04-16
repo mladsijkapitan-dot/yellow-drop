@@ -74,10 +74,10 @@ async def trade_get_username(message: Message, session: AsyncSession, state: FSM
     receiver = result.scalar_one_or_none()
 
     if not receiver:
-        await message.answer("Игрок не найден. Проверь username или попроси его написать /start.")
+        await message.answer("Игрок не найден. Проверь username или попроси его написать /start.", reply_markup=back_to_menu())
         return
     if receiver.id == message.from_user.id:
-        await message.answer("Нельзя торговать с собой 😄")
+        await message.answer("Нельзя торговать с собой 😄", reply_markup=back_to_menu())
         return
 
     # Показываем вещи получателя (последние 10, не залоченные)
@@ -85,7 +85,7 @@ async def trade_get_username(message: Message, session: AsyncSession, state: FSM
     recv_items = [ui for ui in recv_items if not ui.is_locked][:10]
 
     if not recv_items:
-        await message.answer(f"У @{raw} нет доступных вещей для обмена.")
+        await message.answer(f"У @{raw} нет доступных вещей для обмена.", reply_markup=back_to_menu())
         await state.clear()
         return
 
@@ -161,7 +161,8 @@ async def trade_confirm_handler(callback: CallbackQuery, session: AsyncSession):
             "invalid_initiator_item": "Твоя вещь недоступна для трейда.",
             "invalid_receiver_item": "Вещь получателя недоступна для трейда.",
         }
-        await callback.answer(errors.get(result, "Ошибка создания трейда."), show_alert=True)
+        await callback.message.edit_text(errors.get(result, "Ошибка создания трейда."), reply_markup=back_to_menu())
+        await callback.answer()
         return
 
     # Уведомить получателя
@@ -206,7 +207,8 @@ async def trade_accept_handler(callback: CallbackQuery, session: AsyncSession):
             "not_pending": "Трейд уже завершён.",
             "expired": "Трейд истёк ⌛",
         }
-        await callback.answer(msgs.get(result, "Ошибка."), show_alert=True)
+        await callback.message.edit_text(msgs.get(result, "Ошибка."), reply_markup=back_to_menu())
+        await callback.answer()
         return
 
     # Получаем вещи для уведомления
@@ -216,7 +218,7 @@ async def trade_accept_handler(callback: CallbackQuery, session: AsyncSession):
     await session.refresh(recv_item, ["item"])
 
     await callback.message.edit_text(
-        f"✅ Трейд принят!\nТы получил: <b>{recv_item.item.name}</b>",
+        f"✅ Трейд принят!\nТы получил: <b>{init_item.item.name}</b>",
         parse_mode="HTML",
         reply_markup=back_to_menu(),
     )
@@ -224,7 +226,7 @@ async def trade_accept_handler(callback: CallbackQuery, session: AsyncSession):
     try:
         await callback.bot.send_message(
             chat_id=result.initiator_id,
-            text=f"✅ Твой трейд #{result.id} принят!\nТы получил: <b>{init_item.item.name}</b>",
+            text=f"✅ Твой трейд #{result.id} принят!\nТы получил: <b>{recv_item.item.name}</b>",
             parse_mode="HTML",
             reply_markup=back_to_menu(),
         )
@@ -240,7 +242,8 @@ async def trade_decline_handler(callback: CallbackQuery, session: AsyncSession):
     result = await decline_trade(trade_id, callback.from_user.id, session)
 
     if isinstance(result, str):
-        await callback.answer("Не удалось отклонить трейд.", show_alert=True)
+        await callback.message.edit_text("Не удалось отклонить трейд.", reply_markup=back_to_menu())
+        await callback.answer()
         return
 
     await callback.message.edit_text(

@@ -1,5 +1,6 @@
 from aiogram import Router
-from aiogram.types import CallbackQuery
+from aiogram.filters import Command
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, main_menu
@@ -34,6 +35,44 @@ def format_time(seconds: int) -> str:
     return f"{s}с"
 
 
+@router.message(Command("drop"))
+async def cmd_drop(message: Message, session: AsyncSession):
+    user = await session.get(User, message.from_user.id)
+    if not user:
+        await message.answer("Сначала напиши /start")
+        return
+
+    status = await get_drop_status(user)
+    if not status["available"]:
+        wait = format_time(status["wait_seconds"])
+        if status["reason"] == "daily_limit":
+            await message.answer(f"На сегодня дропы закончились 😴\nСледующие через {wait}")
+        else:
+            await message.answer(f"⏳ Следующий дроп через {wait}")
+        return
+
+    item = await do_drop(user, session)
+    if not item:
+        await message.answer("Попробуй ещё раз.")
+        return
+
+    await session.refresh(user)
+    drops_left = max(0, 3 - user.drop_count)
+    emoji = RARITY_EMOJI[item.rarity]
+    label = RARITY_LABEL[item.rarity]
+    text = (
+        f"{emoji} Тебе выпало:\n\n"
+        f"<b>{item.name}</b>\n"
+        f"Редкость: {label}\n\n"
+        f"<i>{item.description}</i>\n\n"
+        f"Дропов осталось сегодня: {drops_left}"
+    )
+    if item.image_url:
+        await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
+    else:
+        await message.answer(text, parse_mode="HTML", reply_markup=main_menu())
+
+
 @router.callback_query(lambda c: c.data == "drop")
 async def handle_drop(callback: CallbackQuery, session: AsyncSession):
     user = await session.get(User, callback.from_user.id)
@@ -61,7 +100,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
 
     item = await do_drop(user, session)
     if not item:
-        await callback.message.answer("Попробуй ещё раз — что-то пошло не так.")
+        await callback.message.answer("Попробуй ещё раз — что-то пошло не так.", reply_markup=back_to_menu())
         return
 
     # Обновляем user из БД чтобы получить свежий drop_count
@@ -87,7 +126,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
 
 @router.callback_query(lambda c: c.data == "menu")
 async def handle_menu(callback: CallbackQuery):
-    await callback.message.answer("Главное меню 🟡", reply_markup=main_menu())
+    await callback.message.answer("👁️ Добро пожаловать в главное меню GRAILZ.\n\nВыберите нужный раздел ниже.", reply_markup=main_menu())
     await callback.answer()
 
 

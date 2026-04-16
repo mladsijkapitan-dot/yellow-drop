@@ -3,6 +3,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 
 from bot.handlers import admin, drop, start, trade, wardrobe
 from bot.middlewares.db import DbSessionMiddleware
@@ -30,6 +31,11 @@ async def main():
     dp.include_router(wardrobe.router)
     dp.include_router(trade.router)
     dp.include_router(admin.router)
+
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Главное меню"),
+        BotCommand(command="drop", description="🎁 Получить дроп"),
+    ])
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

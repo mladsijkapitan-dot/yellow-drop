@@ -33,6 +33,7 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
             "Твой гардероб пуст 👔\nПолучи первый дроп!",
             reply_markup=back_to_menu(),
         )
+
         await callback.answer()
         return
 
