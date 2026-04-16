@@ -5,6 +5,7 @@ load_dotenv()
 
 BOT_TOKEN: str = os.environ["BOT_TOKEN"]
 DATABASE_URL: str = os.environ["DATABASE_URL"]
+ADMIN_IDS: list[int] = [int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x]
 
 DROP_COOLDOWN_HOURS: int = 8
 DROP_MAX_PER_DAY: int = 3

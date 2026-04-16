@@ -4,7 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.handlers import drop, start, trade, wardrobe
+from bot.handlers import admin, drop, start, trade, wardrobe
 from bot.middlewares.db import DbSessionMiddleware
 from config import BOT_TOKEN
 from db.models import Base
@@ -29,6 +29,7 @@ async def main():
     dp.include_router(drop.router)
     dp.include_router(wardrobe.router)
     dp.include_router(trade.router)
+    dp.include_router(admin.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
