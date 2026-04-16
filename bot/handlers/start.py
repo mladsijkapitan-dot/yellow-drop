@@ -28,6 +28,11 @@ async def cmd_start(message: Message, session: AsyncSession):
             f"Твой следующий grail может выпасть уже сейчас. 👇"
         )
     else:
-        text = f"С возвращением, {user.first_name} 🟡\nЧто делаем?"
+        text = (
+            f"👋 С возвращением, {user.first_name}\n\n"
+            f"Твой гардероб на месте, трейды под контролем, а следующий ценный айтем может оказаться совсем рядом. "
+            f"Самое время проверить дроп или заняться коллекцией.\n\n"
+            f"Что делаем дальше?"
+        )
 
     await message.answer(text, reply_markup=main_menu())
