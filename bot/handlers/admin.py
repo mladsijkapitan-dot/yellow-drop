@@ -50,7 +50,7 @@ async def cmd_admin(message: Message):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить вещь", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 Список вещей", callback_data="admin_list:0"))
-    await message.answer("👔 Админ-панель YELLOW DROP", reply_markup=builder.as_markup())
+    await message.answer("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
 
 
 # --- Список вещей ---
@@ -407,5 +407,5 @@ async def admin_menu_cb(callback: CallbackQuery):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить вещь", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 Список вещей", callback_data="admin_list:0"))
-    await callback.message.edit_text("👔 Админ-панель YELLOW DROP", reply_markup=builder.as_markup())
+    await callback.message.edit_text("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
     await callback.answer()

@@ -23,7 +23,7 @@ async def cmd_start(message: Message, session: AsyncSession):
         session.add(user)
         await session.commit()
         text = (
-            f"Добро пожаловать в YELLOW DROP 🟡\n\n"
+            f"Добро пожаловать в GRAIL 🟡\n\n"
             f"Здесь ты собираешь редкую одежду.\n"
             f"3 дропа в день · 4 уровня редкости · Трейды с игроками\n\n"
             f"Начни с первого дропа 👇"
