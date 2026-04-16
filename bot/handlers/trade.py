@@ -101,6 +101,7 @@ async def trade_get_username(message: Message, session: AsyncSession, state: FSM
             callback_data=f"pick_recv_item:{ui.id}",
         ))
     builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_trade_flow"))
+    builder.row(InlineKeyboardButton(text="🏠 Меню", callback_data="menu"))
 
     data = await state.get_data()
     await message.answer(

@@ -46,14 +46,14 @@ async def cmd_drop(message: Message, session: AsyncSession):
     if not status["available"]:
         wait = format_time(status["wait_seconds"])
         if status["reason"] == "daily_limit":
-            await message.answer(f"На сегодня дропы закончились 😴\nСледующие через {wait}")
+            await message.answer(f"На сегодня дропы закончились 😴\nСледующие через {wait}", reply_markup=main_menu())
         else:
-            await message.answer(f"⏳ Следующий дроп через {wait}")
+            await message.answer(f"⏳ Следующий дроп через {wait}", reply_markup=main_menu())
         return
 
     item = await do_drop(user, session)
     if not item:
-        await message.answer("Попробуй ещё раз.")
+        await message.answer("Попробуй ещё раз.", reply_markup=main_menu())
         return
 
     await session.refresh(user)
