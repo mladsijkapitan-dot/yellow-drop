@@ -126,7 +126,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
 
 @router.callback_query(lambda c: c.data == "menu")
 async def handle_menu(callback: CallbackQuery):
-    await callback.message.answer(f"👋 С возвращением, {callback.from_user.first_name}.\nРады снова видеть вас в GRAIL.", reply_markup=main_menu())
+    await callback.message.answer("👋 Добро пожаловать в главное меню GRAIL!\n\nЗдесь вы можете открыть дроп, перейти в гардероб или посмотреть свои трейды.\n\nВыберите нужный раздел ниже.", reply_markup=main_menu())
     await callback.answer()
 
 
