@@ -1,6 +1,5 @@
 from aiogram import Router
 from aiogram.types import CallbackQuery
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, main_menu
@@ -36,7 +35,7 @@ def format_time(seconds: int) -> str:
 
 
 @router.callback_query(lambda c: c.data == "drop")
-async def handle_drop(callback: CallbackQuery, session: AsyncSession, redis: Redis):
+async def handle_drop(callback: CallbackQuery, session: AsyncSession):
     user = await session.get(User, callback.from_user.id)
     if not user:
         await callback.answer("Сначала напиши /start", show_alert=True)
@@ -60,7 +59,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession, redis: Red
 
     await callback.answer("🎲 Крутим...")
 
-    item = await do_drop(user, session, redis)
+    item = await do_drop(user, session)
     if not item:
         await callback.message.answer("Попробуй ещё раз — что-то пошло не так.")
         return

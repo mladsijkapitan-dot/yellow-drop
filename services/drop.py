@@ -1,7 +1,6 @@
 import random
 from datetime import datetime, timezone
 
-from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +15,6 @@ def _weighted_rarity() -> Rarity:
 
 
 async def get_drop_status(user: User) -> dict:
-    """Возвращает статус дропа: доступен ли и сколько осталось секунд."""
     now = datetime.now(timezone.utc)
 
     # Lazy reset: если последний дроп был до сегодня — сбрасываем счётчик
@@ -24,7 +22,6 @@ async def get_drop_status(user: User) -> dict:
         user.drop_count = 0
 
     if user.drop_count >= DROP_MAX_PER_DAY:
-        # Считаем до начала следующего дня UTC
         from datetime import timedelta
         next_reset = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) + timedelta(days=1)
         wait_seconds = int((next_reset - now).total_seconds())
@@ -41,47 +38,55 @@ async def get_drop_status(user: User) -> dict:
     return {"available": True, "drops_left": drops_left}
 
 
-async def do_drop(user: User, session: AsyncSession, redis: Redis) -> Item | None:
-    """Выполняет дроп с Redis-локом. Возвращает Item или None если гонка."""
-    lock_key = f"drop_lock:{user.id}"
-    acquired = await redis.set(lock_key, "1", nx=True, ex=5)
-    if not acquired:
+async def do_drop(user: User, session: AsyncSession) -> Item | None:
+    """Выполняет дроп. SELECT FOR UPDATE защищает от гонки запросов."""
+    # Блокируем строку пользователя на время транзакции
+    result = await session.execute(
+        select(User).where(User.id == user.id).with_for_update()
+    )
+    locked_user = result.scalar_one()
+
+    now = datetime.now(timezone.utc)
+
+    # Lazy reset внутри лока
+    if locked_user.last_drop_at and locked_user.last_drop_at.date() < now.date():
+        locked_user.drop_count = 0
+
+    # Повторная проверка внутри лока
+    if locked_user.drop_count >= DROP_MAX_PER_DAY:
         return None
 
-    try:
-        now = datetime.now(timezone.utc)
-
-        # Повторная проверка внутри лока (защита от гонки)
-        status = await get_drop_status(user)
-        if not status["available"]:
+    if locked_user.last_drop_at:
+        from datetime import timedelta
+        next_drop = locked_user.last_drop_at + timedelta(hours=DROP_COOLDOWN_HOURS)
+        if now < next_drop:
             return None
 
-        rarity = _weighted_rarity()
-        result = await session.execute(
-            select(Item).where(Item.rarity == rarity, Item.is_active == True)
+    rarity = _weighted_rarity()
+    items_result = await session.execute(
+        select(Item).where(Item.rarity == rarity, Item.is_active == True)
+    )
+    items = items_result.scalars().all()
+
+    if not items:
+        items_result = await session.execute(
+            select(Item).where(Item.rarity == Rarity.base, Item.is_active == True)
         )
-        items = result.scalars().all()
-        if not items:
-            # Fallback на base если нет вещей нужной редкости
-            result = await session.execute(
-                select(Item).where(Item.rarity == Rarity.base, Item.is_active == True)
-            )
-            items = result.scalars().all()
+        items = items_result.scalars().all()
 
-        if not items:
-            return None
+    if not items:
+        return None
 
-        chosen = random.choice(items)
-        session.add(UserItem(user_id=user.id, item_id=chosen.id))
+    chosen = random.choice(items)
+    session.add(UserItem(user_id=locked_user.id, item_id=chosen.id))
 
-        # Lazy reset drop_count если нужно
-        if user.last_drop_at and user.last_drop_at.date() < now.date():
-            user.drop_count = 0
+    locked_user.drop_count += 1
+    locked_user.last_drop_at = now
 
-        user.drop_count += 1
-        user.last_drop_at = now
+    await session.commit()
 
-        await session.commit()
-        return chosen
-    finally:
-        await redis.delete(lock_key)
+    # Обновляем исходный объект user
+    user.drop_count = locked_user.drop_count
+    user.last_drop_at = locked_user.last_drop_at
+
+    return chosen
