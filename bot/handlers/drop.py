@@ -79,7 +79,10 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
         f"Дропов осталось сегодня: {drops_left}"
     )
 
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=main_menu())
+    if item.image_url:
+        await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
+    else:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=main_menu())
 
 
 @router.callback_query(lambda c: c.data == "menu")

@@ -24,6 +24,11 @@ class AddItem(StatesGroup):
     name = State()
     rarity = State()
     description = State()
+    photo = State()
+
+
+class AddPhoto(StatesGroup):
+    waiting = State()
 
 
 class EditItem(StatesGroup):
@@ -118,9 +123,11 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
     )
 
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="✏️ Изменить название", callback_data=f"admin_edit:{item_id}:name"))
-    builder.row(InlineKeyboardButton(text="✏️ Изменить описание", callback_data=f"admin_edit:{item_id}:description"))
-    builder.row(InlineKeyboardButton(text="✏️ Изменить редкость", callback_data=f"admin_edit:{item_id}:rarity"))
+    builder.row(InlineKeyboardButton(text="✏️ Название", callback_data=f"admin_edit:{item_id}:name"))
+    builder.row(InlineKeyboardButton(text="✏️ Описание", callback_data=f"admin_edit:{item_id}:description"))
+    builder.row(InlineKeyboardButton(text="✏️ Редкость", callback_data=f"admin_edit:{item_id}:rarity"))
+    photo_text = "🖼 Изменить фото" if item.image_url else "🖼 Добавить фото"
+    builder.row(InlineKeyboardButton(text=photo_text, callback_data=f"admin_edit:{item_id}:photo"))
 
     toggle_text = "❌ Скрыть из дропа" if item.is_active else "✅ Включить в дроп"
     builder.row(InlineKeyboardButton(text=toggle_text, callback_data=f"admin_toggle:{item_id}"))
@@ -215,6 +222,13 @@ async def admin_edit(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
+    if field == "photo":
+        await state.update_data(item_id=int(item_id))
+        await state.set_state(AddPhoto.waiting)
+        await callback.message.answer("Отправь фото для этой вещи:")
+        await callback.answer()
+        return
+
     await state.update_data(item_id=int(item_id), field=field)
     await state.set_state(EditItem.entering_value)
 
@@ -297,29 +311,92 @@ async def admin_add_rarity(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.message(AddItem.description)
-async def admin_add_description(message: Message, session: AsyncSession, state: FSMContext):
+@router.message(AddPhoto.waiting)
+async def admin_set_photo(message: Message, session: AsyncSession, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
 
+    if not message.photo:
+        await message.answer("Отправь именно фото (не файл).")
+        return
+
     data = await state.get_data()
+    item = await session.get(Item, data["item_id"])
+    if not item:
+        await message.answer("Вещь не найдена.")
+        await state.clear()
+        return
+
+    file_id = message.photo[-1].file_id
+    item.image_url = file_id
+    await session.commit()
+    await state.clear()
+    await message.answer(f"✅ Фото для <b>{item.name}</b> сохранено!", parse_mode="HTML")
+
+
+@router.message(AddItem.description)
+async def admin_add_description(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    await state.update_data(description=message.text.strip())
+    await state.set_state(AddItem.photo)
+
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Пропустить фото", callback_data="admin_skip_photo"))
+    await message.answer("Отправь фото карточки вещи или пропусти:", reply_markup=builder.as_markup())
+
+
+@router.message(AddItem.photo)
+async def admin_add_photo(message: Message, session: AsyncSession, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    if not message.photo:
+        await message.answer("Отправь фото или нажми «Пропустить фото».")
+        return
+
+    data = await state.get_data()
+    file_id = message.photo[-1].file_id
     item = Item(
         name=data["name"],
         rarity=Rarity(data["rarity"]),
-        description=message.text.strip(),
+        description=data["description"],
+        image_url=file_id,
         is_active=True,
     )
     session.add(item)
     await session.commit()
     await state.clear()
 
-    await message.answer(
-        f"✅ Вещь добавлена!\n\n"
-        f"<b>{item.name}</b>\n"
-        f"{RARITY_LABEL[item.rarity]}\n"
-        f"<i>{item.description}</i>",
+    await message.answer_photo(
+        file_id,
+        caption=f"✅ Вещь добавлена!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}\n<i>{item.description}</i>",
         parse_mode="HTML",
     )
+
+
+@router.callback_query(lambda c: c.data == "admin_skip_photo")
+async def admin_skip_photo(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+
+    data = await state.get_data()
+    item = Item(
+        name=data["name"],
+        rarity=Rarity(data["rarity"]),
+        description=data["description"],
+        is_active=True,
+    )
+    session.add(item)
+    await session.commit()
+    await state.clear()
+
+    await callback.message.edit_text(
+        f"✅ Вещь добавлена (без фото)!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}\n<i>{item.description}</i>",
+        parse_mode="HTML",
+    )
+    await callback.answer()
 
 
 @router.callback_query(lambda c: c.data == "admin_menu")

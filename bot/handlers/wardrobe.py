@@ -57,9 +57,24 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
         f"Получено: {date_str}"
     )
 
-    await callback.message.edit_text(
-        text,
-        parse_mode="HTML",
-        reply_markup=wardrobe_nav(page, total),
-    )
+    if item.image_url:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer_photo(
+            item.image_url,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=wardrobe_nav(page, total),
+        )
+    else:
+        try:
+            await callback.message.edit_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=wardrobe_nav(page, total),
+            )
+        except Exception:
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=wardrobe_nav(page, total))
     await callback.answer()
