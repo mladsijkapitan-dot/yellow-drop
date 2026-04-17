@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import DROP_COOLDOWN_HOURS, DROP_MAX_PER_DAY, RARITY_WEIGHTS
+from config import DROP_COOLDOWN_HOURS, DROP_MAX_PER_DAY, RARITY_PRESTIGE, RARITY_WEIGHTS
 from db.models import Item, Rarity, User, UserItem
 
 
@@ -82,6 +82,7 @@ async def do_drop(user: User, session: AsyncSession) -> Item | None:
 
     locked_user.drop_count += 1
     locked_user.last_drop_at = now
+    locked_user.prestige += RARITY_PRESTIGE.get(chosen.rarity.value, 0)
 
     await session.commit()
 

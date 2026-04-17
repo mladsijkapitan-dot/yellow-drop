@@ -36,6 +36,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     drop_count: Mapped[int] = mapped_column(SmallInteger, default=0)
     last_drop_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    prestige: Mapped[int] = mapped_column(Integer, default=0)
 
     items: Mapped[list["UserItem"]] = relationship(back_populates="user")
 

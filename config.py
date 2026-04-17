@@ -18,3 +18,10 @@ RARITY_WEIGHTS: dict[str, float] = {
     "archive": 10.0,
     "legendary": 2.0,
 }
+
+RARITY_PRESTIGE: dict[str, int] = {
+    "base": 10,
+    "medium": 20,
+    "archive": 60,
+    "legendary": 300,
+}

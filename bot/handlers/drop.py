@@ -4,6 +4,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, main_menu
+from config import RARITY_PRESTIGE
 from db.models import Rarity, User
 from services.drop import do_drop, get_drop_status
 
@@ -60,12 +61,14 @@ async def cmd_drop(message: Message, session: AsyncSession):
     drops_left = max(0, 3 - user.drop_count)
     emoji = RARITY_EMOJI[item.rarity]
     label = RARITY_LABEL[item.rarity]
+    prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
     text = (
-        f"{emoji} Тебе выпало:\n\n"
-        f"<b>{item.name}</b>\n"
-        f"Редкость: {label}\n\n"
-        f"<i>{item.description}</i>\n\n"
-        f"Дропов осталось сегодня: {drops_left}"
+        f"Дроп получен\n\n"
+        f"<b>{item.name}</b>\n\n"
+        f"Еще одна вещь в коллекции. Продолжай собирать гардероб и повышать свой Prestige.\n\n"
+        f"Редкость: {label}\n"
+        f"Начислено: +{prestige_earned} Prestige\n"
+        f"Всего Prestige: {user.prestige}"
     )
     if item.image_url:
         await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
@@ -103,19 +106,20 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
         await callback.message.answer("Попробуй ещё раз — что-то пошло не так.", reply_markup=back_to_menu())
         return
 
-    # Обновляем user из БД чтобы получить свежий drop_count
     await session.refresh(user)
     drops_left = max(0, 3 - user.drop_count)
 
     emoji = RARITY_EMOJI[item.rarity]
     label = RARITY_LABEL[item.rarity]
+    prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
 
     text = (
-        f"{emoji} Тебе выпало:\n\n"
-        f"<b>{item.name}</b>\n"
-        f"Редкость: {label}\n\n"
-        f"<i>{item.description}</i>\n\n"
-        f"Дропов осталось сегодня: {drops_left}"
+        f"Дроп получен\n\n"
+        f"<b>{item.name}</b>\n\n"
+        f"Еще одна вещь в коллекции. Продолжай собирать гардероб и повышать свой Prestige.\n\n"
+        f"Редкость: {label}\n"
+        f"Начислено: +{prestige_earned} Prestige\n"
+        f"Всего Prestige: {user.prestige}"
     )
 
     if item.image_url:
