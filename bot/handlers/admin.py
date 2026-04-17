@@ -7,10 +7,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import delete as sa_delete
+from sqlalchemy import delete as sa_delete, or_, select as sa_select
 
 from config import ADMIN_IDS
-from db.models import Item, Rarity, UserItem
+from db.models import Item, Rarity, Trade, TradeStatus, UserItem
 
 router = Router()
 
@@ -239,6 +239,27 @@ async def admin_force_delete_confirm(callback: CallbackQuery, session: AsyncSess
         await callback.message.edit_text("Вещь не найдена.", reply_markup=admin_back_keyboard())
         await callback.answer()
         return
+
+    # Отменяем все трейды где участвует эта вещь
+    user_items_result = await session.execute(
+        sa_select(UserItem.id).where(UserItem.item_id == item_id)
+    )
+    user_item_ids = [row[0] for row in user_items_result.all()]
+
+    if user_item_ids:
+        trades_result = await session.execute(
+            sa_select(Trade).where(
+                or_(
+                    Trade.initiator_item_id.in_(user_item_ids),
+                    Trade.receiver_item_id.in_(user_item_ids),
+                ),
+                Trade.status == TradeStatus.pending,
+            )
+        )
+        for trade in trades_result.scalars().all():
+            trade.status = TradeStatus.cancelled
+
+        await session.flush()
 
     # Удаляем из всех гардеробов
     await session.execute(sa_delete(UserItem).where(UserItem.item_id == item_id))
