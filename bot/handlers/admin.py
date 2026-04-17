@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete as sa_delete, or_, select as sa_select
 
 from config import ADMIN_IDS
-from db.models import Item, Rarity, Trade, TradeStatus, UserItem
+from db.models import Item, Rarity, Trade, TradeStatus, User, UserItem
 
 router = Router()
 
@@ -51,6 +51,10 @@ def admin_back_keyboard():
 
 # --- Главное меню админки ---
 
+class Broadcast(StatesGroup):
+    waiting_message = State()
+
+
 @router.message(Command("admin"))
 async def cmd_admin(message: Message):
     if not is_admin(message.from_user.id):
@@ -59,6 +63,7 @@ async def cmd_admin(message: Message):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить вещь", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 Список вещей", callback_data="admin_list:0"))
+    builder.row(InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"))
     await message.answer("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
 
 
@@ -534,6 +539,61 @@ async def admin_skip_photo(callback: CallbackQuery, session: AsyncSession, state
     await callback.answer()
 
 
+@router.callback_query(lambda c: c.data == "admin_broadcast")
+async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+
+    await state.set_state(Broadcast.waiting_message)
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+    await callback.message.answer(
+        "Отправь сообщение для рассылки.\n\nМожно текст, фото с подписью или просто фото.",
+        reply_markup=builder.as_markup(),
+    )
+    await callback.answer()
+
+
+@router.message(Broadcast.waiting_message)
+async def admin_broadcast_send(message: Message, session: AsyncSession, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    await state.clear()
+
+    result = await session.execute(sa_select(User.id))
+    user_ids = [row[0] for row in result.all()]
+
+    sent = 0
+    failed = 0
+
+    for user_id in user_ids:
+        try:
+            if message.photo:
+                await message.bot.send_photo(
+                    chat_id=user_id,
+                    photo=message.photo[-1].file_id,
+                    caption=message.caption or "",
+                    parse_mode="HTML",
+                )
+            else:
+                await message.bot.send_message(
+                    chat_id=user_id,
+                    text=message.text,
+                    parse_mode="HTML",
+                )
+            sent += 1
+        except Exception:
+            failed += 1
+
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    await message.answer(
+        f"✅ Рассылка завершена\n\nОтправлено: {sent}\nНе доставлено: {failed}",
+        reply_markup=builder.as_markup(),
+    )
+
+
 @router.callback_query(lambda c: c.data == "admin_menu")
 async def admin_menu_cb(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
@@ -543,5 +603,6 @@ async def admin_menu_cb(callback: CallbackQuery, state: FSMContext):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить вещь", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 Список вещей", callback_data="admin_list:0"))
+    builder.row(InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"))
     await callback.message.edit_text("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
     await callback.answer()
