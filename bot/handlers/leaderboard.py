@@ -21,7 +21,7 @@ async def leaderboard_text(session: AsyncSession, current_user_id: int) -> str:
     if not users:
         return "Пока нет игроков в таблице."
 
-    lines = ["✨ <b>Топ-10 по Prestige</b>\n"]
+    lines = ["✨ <b>Зал Престижа — Топ-10</b>\n"]
     for i, user in enumerate(users):
         medal = MEDALS[i] if i < 3 else f"{i + 1}."
         name = f"@{user.username}" if user.username else user.first_name

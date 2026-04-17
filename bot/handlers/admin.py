@@ -7,8 +7,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import delete as sa_delete
+
 from config import ADMIN_IDS
-from db.models import Item, Rarity
+from db.models import Item, Rarity, UserItem
 
 router = Router()
 
@@ -141,6 +143,7 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
     toggle_text = "❌ Скрыть из дропа" if item.is_active else "✅ Включить в дроп"
     builder.row(InlineKeyboardButton(text=toggle_text, callback_data=f"admin_toggle:{item_id}"))
     builder.row(InlineKeyboardButton(text="🗑 Удалить", callback_data=f"admin_delete:{item_id}"))
+    builder.row(InlineKeyboardButton(text="💀 Удалить из всех гардеробов", callback_data=f"admin_force_delete:{item_id}"))
     builder.row(InlineKeyboardButton(text="◀ К списку", callback_data="admin_list:0"))
     builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
 
@@ -196,6 +199,53 @@ async def admin_delete(callback: CallbackQuery, session: AsyncSession):
         parse_mode="HTML",
         reply_markup=builder.as_markup(),
     )
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("admin_force_delete:"))
+async def admin_force_delete(callback: CallbackQuery, session: AsyncSession):
+    if not is_admin(callback.from_user.id):
+        return
+
+    item_id = int(callback.data.split(":")[1])
+    item = await session.get(Item, item_id)
+    if not item:
+        await callback.message.edit_text("Вещь не найдена.", reply_markup=admin_back_keyboard())
+        await callback.answer()
+        return
+
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💀 Да, удалить везде", callback_data=f"admin_force_delete_confirm:{item_id}"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_item:{item_id}"),
+    )
+
+    await callback.message.edit_text(
+        f"⚠️ Удалить <b>{item.name}</b> из всех гардеробов игроков?\n\nЭто действие необратимо.",
+        parse_mode="HTML",
+        reply_markup=builder.as_markup(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("admin_force_delete_confirm:"))
+async def admin_force_delete_confirm(callback: CallbackQuery, session: AsyncSession):
+    if not is_admin(callback.from_user.id):
+        return
+
+    item_id = int(callback.data.split(":")[1])
+    item = await session.get(Item, item_id)
+    if not item:
+        await callback.message.edit_text("Вещь не найдена.", reply_markup=admin_back_keyboard())
+        await callback.answer()
+        return
+
+    # Удаляем из всех гардеробов
+    await session.execute(sa_delete(UserItem).where(UserItem.item_id == item_id))
+    await session.delete(item)
+    await session.commit()
+
+    await callback.message.edit_text("💀 Вещь удалена из всех гардеробов и из игры.", reply_markup=admin_back_keyboard())
     await callback.answer()
 
 

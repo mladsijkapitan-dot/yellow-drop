@@ -264,6 +264,35 @@ async def trade_decline_handler(callback: CallbackQuery, session: AsyncSession):
     await callback.answer()
 
 
+@router.callback_query(lambda c: c.data and c.data.startswith("trade_cancel:"))
+async def trade_cancel_handler(callback: CallbackQuery, session: AsyncSession):
+    trade_id = int(callback.data.split(":")[1])
+    result = await cancel_trade(trade_id, callback.from_user.id, session)
+
+    if isinstance(result, str):
+        msgs = {
+            "not_found": "Трейд не найден.",
+            "not_your_trade": "Это не твой трейд.",
+            "not_pending": "Трейд уже завершён.",
+        }
+        await callback.message.edit_text(msgs.get(result, "Ошибка."), reply_markup=back_to_menu())
+        await callback.answer()
+        return
+
+    await callback.message.edit_text("✅ Трейд отменён.", reply_markup=back_to_menu())
+
+    try:
+        await callback.bot.send_message(
+            chat_id=result.receiver_id,
+            text=f"❌ Трейд #{result.id} был отменён отправителем.",
+            reply_markup=back_to_menu(),
+        )
+    except Exception:
+        pass
+
+    await callback.answer()
+
+
 @router.callback_query(lambda c: c.data == "cancel_trade_flow")
 async def cancel_trade_flow(callback: CallbackQuery, state: FSMContext):
     await state.clear()
@@ -291,11 +320,16 @@ async def handle_trades(callback: CallbackQuery, session: AsyncSession):
 
     builder = InlineKeyboardBuilder()
     for trade in trades:
-        role = "→" if trade.initiator_id == user_id else "←"
-        builder.row(InlineKeyboardButton(
-            text=f"Трейд #{trade.id} {role}",
-            callback_data=f"trade_decline:{trade.id}" if trade.receiver_id == user_id else f"trade_cancel:{trade.id}",
-        ))
+        if trade.initiator_id == user_id:
+            builder.row(InlineKeyboardButton(
+                text=f"❌ Отменить трейд #{trade.id} (исходящий)",
+                callback_data=f"trade_cancel:{trade.id}",
+            ))
+        else:
+            builder.row(InlineKeyboardButton(
+                text=f"❌ Отклонить трейд #{trade.id} (входящий)",
+                callback_data=f"trade_decline:{trade.id}",
+            ))
     builder.row(InlineKeyboardButton(text="🏠 Меню", callback_data="menu"))
 
     await callback.message.answer(
