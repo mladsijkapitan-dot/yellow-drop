@@ -240,29 +240,43 @@ async def admin_force_delete_confirm(callback: CallbackQuery, session: AsyncSess
         await callback.answer()
         return
 
-    # Отменяем все трейды где участвует эта вещь
+    # 1. Находим все user_item ids для этой вещи
     user_items_result = await session.execute(
         sa_select(UserItem.id).where(UserItem.item_id == item_id)
     )
     user_item_ids = [row[0] for row in user_items_result.all()]
 
+    # 2. Отменяем все трейды где участвуют эти вещи
     if user_item_ids:
         trades_result = await session.execute(
             sa_select(Trade).where(
                 or_(
                     Trade.initiator_item_id.in_(user_item_ids),
                     Trade.receiver_item_id.in_(user_item_ids),
-                ),
-                Trade.status == TradeStatus.pending,
+                )
             )
         )
         for trade in trades_result.scalars().all():
             trade.status = TradeStatus.cancelled
-
         await session.flush()
 
-    # Удаляем из всех гардеробов
+    # 3. Удаляем трейды полностью (чтобы снять FK)
+    if user_item_ids:
+        await session.execute(
+            sa_delete(Trade).where(
+                or_(
+                    Trade.initiator_item_id.in_(user_item_ids),
+                    Trade.receiver_item_id.in_(user_item_ids),
+                )
+            )
+        )
+        await session.flush()
+
+    # 4. Удаляем из всех гардеробов
     await session.execute(sa_delete(UserItem).where(UserItem.item_id == item_id))
+    await session.flush()
+
+    # 5. Удаляем саму вещь
     await session.delete(item)
     await session.commit()
 
