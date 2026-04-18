@@ -111,10 +111,16 @@ async def admin_list(callback: CallbackQuery, session: AsyncSession):
 
     builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
 
-    await callback.message.edit_text(
-        f"📋 Все вещи ({len(items)} шт):",
-        reply_markup=builder.as_markup(),
-    )
+    try:
+        await callback.message.edit_text(
+            f"📋 Все вещи ({len(items)} шт):",
+            reply_markup=builder.as_markup(),
+        )
+    except Exception:
+        await callback.message.answer(
+            f"📋 Все вещи ({len(items)} шт):",
+            reply_markup=builder.as_markup(),
+        )
     await callback.answer()
 
 
@@ -622,5 +628,8 @@ async def admin_menu_cb(callback: CallbackQuery, state: FSMContext):
     builder.row(InlineKeyboardButton(text="➕ Добавить вещь", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 Список вещей", callback_data="admin_list:0"))
     builder.row(InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"))
-    await callback.message.edit_text("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
+    try:
+        await callback.message.edit_text("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
+    except Exception:
+        await callback.message.answer("👔 Админ-панель GRAIL", reply_markup=builder.as_markup())
     await callback.answer()
