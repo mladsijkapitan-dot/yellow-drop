@@ -3,7 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.main import back_to_menu, main_menu
+from bot.keyboards.main import after_drop, back_to_menu, main_menu
 from config import RARITY_PRESTIGE
 from db.models import Item, Rarity, User
 from services.drop import do_drop, get_drop_status
@@ -82,9 +82,9 @@ async def cmd_drop(message: Message, session: AsyncSession):
     await session.refresh(item)
     text = _format_drop_text(item, user.prestige)
     if item.image_url:
-        await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
+        await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=after_drop())
     else:
-        await message.answer(text, parse_mode="HTML", reply_markup=main_menu())
+        await message.answer(text, parse_mode="HTML", reply_markup=after_drop())
 
 
 @router.callback_query(lambda c: c.data == "drop")
@@ -122,9 +122,9 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
     text = _format_drop_text(item, user.prestige)
 
     if item.image_url:
-        await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
+        await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=after_drop())
     else:
-        await callback.message.answer(text, parse_mode="HTML", reply_markup=main_menu())
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=after_drop())
 
 
 @router.callback_query(lambda c: c.data == "menu")

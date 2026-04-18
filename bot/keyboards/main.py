@@ -50,6 +50,15 @@ def trade_respond(trade_id: int) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def after_drop() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🌑 В меню", callback_data="menu"),
+        InlineKeyboardButton(text="⬛ Гардероб", callback_data="wardrobe:0"),
+    )
+    return builder.as_markup()
+
+
 def back_to_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
