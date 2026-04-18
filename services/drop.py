@@ -75,11 +75,15 @@ async def do_drop(user: User, session: AsyncSession) -> Item | None:
         items = all_items
 
     if not items:
-        items_result = await session.execute(
-            select(Item).where(Item.rarity == Rarity.base, Item.is_active == True)
+        # Фолбэк: любая активная вещь без исчерпанного лимита
+        all_result = await session.execute(
+            select(Item).where(Item.is_active == True)
         )
-        items = items_result.scalars().all()
-        rarity = Rarity.base
+        all_available = all_result.scalars().all()
+        items = [
+            i for i in all_available
+            if not (i.rarity == Rarity.archive and i.max_supply is not None and i.current_supply >= i.max_supply)
+        ]
 
     if not items:
         return None
