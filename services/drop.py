@@ -66,19 +66,29 @@ async def do_drop(user: User, session: AsyncSession) -> Item | None:
     items_result = await session.execute(
         select(Item).where(Item.rarity == rarity, Item.is_active == True)
     )
-    items = items_result.scalars().all()
+    all_items = items_result.scalars().all()
+
+    # Для Archive фильтруем исчерпанные лимиты
+    if rarity == Rarity.archive:
+        items = [i for i in all_items if i.max_supply is None or i.current_supply < i.max_supply]
+    else:
+        items = all_items
 
     if not items:
         items_result = await session.execute(
             select(Item).where(Item.rarity == Rarity.base, Item.is_active == True)
         )
         items = items_result.scalars().all()
+        rarity = Rarity.base
 
     if not items:
         return None
 
     chosen = random.choice(items)
     session.add(UserItem(user_id=locked_user.id, item_id=chosen.id))
+
+    if chosen.rarity == Rarity.archive and chosen.max_supply is not None:
+        chosen.current_supply += 1
 
     locked_user.drop_count += 1
     locked_user.last_drop_at = now

@@ -26,6 +26,7 @@ class AddItem(StatesGroup):
     name = State()
     rarity = State()
     description = State()
+    max_supply = State()
     photo = State()
 
 
@@ -132,10 +133,14 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
         return
 
     status = "✅ Активна" if item.is_active else "❌ Скрыта"
+    supply_line = ""
+    if item.rarity.value == "archive" and item.max_supply is not None:
+        supply_line = f"Лимит: {item.current_supply} / {item.max_supply}\n"
     text = (
         f"📦 <b>{item.name}</b>\n"
         f"Редкость: {RARITY_LABEL[item.rarity]}\n"
-        f"Статус: {status}\n\n"
+        f"Статус: {status}\n"
+        f"{supply_line}\n"
         f"<i>{item.description}</i>"
     )
 
@@ -469,12 +474,38 @@ async def admin_add_description(message: Message, state: FSMContext):
         return
 
     await state.update_data(description=message.text.strip())
+    data = await state.get_data()
+
+    if data.get("rarity") == "archive":
+        await state.set_state(AddItem.max_supply)
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+        await message.answer("Введи лимит выпадения этой Archive-вещи (число, например 50):", reply_markup=builder.as_markup())
+    else:
+        await state.set_state(AddItem.photo)
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(text="Пропустить фото", callback_data="admin_skip_photo"))
+        builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+        await message.answer("Отправь фото карточки вещи или пропусти:", reply_markup=builder.as_markup())
+
+
+@router.message(AddItem.max_supply)
+async def admin_add_max_supply(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+
+    text = message.text.strip()
+    if not text.isdigit() or int(text) <= 0:
+        await message.answer("Введи целое положительное число (например, 50).")
+        return
+
+    await state.update_data(max_supply=int(text))
     await state.set_state(AddItem.photo)
 
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="Пропустить фото", callback_data="admin_skip_photo"))
     builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
-    await message.answer("Отправь фото карточки вещи или пропусти:", reply_markup=builder.as_markup())
+    await message.answer(f"Лимит: {text} шт. Теперь отправь фото или пропусти:", reply_markup=builder.as_markup())
 
 
 @router.message(AddItem.photo)
@@ -494,18 +525,20 @@ async def admin_add_photo(message: Message, session: AsyncSession, state: FSMCon
         description=data["description"],
         image_url=file_id,
         is_active=True,
+        max_supply=data.get("max_supply"),
     )
     session.add(item)
     await session.commit()
     await state.clear()
 
+    supply_note = f"\nLIMITED 0 / {item.max_supply}" if item.max_supply else ""
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить ещё", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
     builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
     await message.answer_photo(
         file_id,
-        caption=f"✅ Вещь добавлена!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}\n<i>{item.description}</i>",
+        caption=f"✅ Вещь добавлена!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}\n<i>{item.description}</i>",
         parse_mode="HTML",
         reply_markup=builder.as_markup(),
     )
@@ -522,17 +555,19 @@ async def admin_skip_photo(callback: CallbackQuery, session: AsyncSession, state
         rarity=Rarity(data["rarity"]),
         description=data["description"],
         is_active=True,
+        max_supply=data.get("max_supply"),
     )
     session.add(item)
     await session.commit()
     await state.clear()
 
+    supply_note = f"\nLIMITED 0 / {item.max_supply}" if item.max_supply else ""
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить ещё", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
     builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
     await callback.message.edit_text(
-        f"✅ Вещь добавлена (без фото)!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}\n<i>{item.description}</i>",
+        f"✅ Вещь добавлена (без фото)!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}\n<i>{item.description}</i>",
         parse_mode="HTML",
         reply_markup=builder.as_markup(),
     )

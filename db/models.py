@@ -50,6 +50,8 @@ class Item(Base):
     description: Mapped[str] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(256), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_supply: Mapped[int | None] = mapped_column(Integer, nullable=True)  # None = безлимит
+    current_supply: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class UserItem(Base):

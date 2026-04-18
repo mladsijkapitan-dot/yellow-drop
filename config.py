@@ -13,15 +13,15 @@ TRADE_EXPIRE_HOURS: int = 24
 TRADE_MAX_ACTIVE: int = 5
 
 RARITY_WEIGHTS: dict[str, float] = {
-    "base": 60.0,
-    "medium": 28.0,
-    "archive": 10.0,
-    "legendary": 2.0,
+    "base": 65.0,
+    "medium": 25.0,
+    "archive": 2.0,
+    "legendary": 8.0,
 }
 
 RARITY_PRESTIGE: dict[str, int] = {
     "base": 10,
-    "medium": 20,
-    "archive": 60,
-    "legendary": 300,
+    "medium": 25,
+    "archive": 300,
+    "legendary": 80,
 }

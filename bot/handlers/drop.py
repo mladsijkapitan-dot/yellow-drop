@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, main_menu
 from config import RARITY_PRESTIGE
-from db.models import Rarity, User
+from db.models import Item, Rarity, User
 from services.drop import do_drop, get_drop_status
 
 router = Router()
@@ -36,6 +36,27 @@ def format_time(seconds: int) -> str:
     return f"{s}с"
 
 
+def _format_drop_text(item: Item, total_prestige: int) -> str:
+    label = RARITY_LABEL[item.rarity]
+    prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
+
+    if item.rarity == Rarity.archive and item.max_supply is not None:
+        supply_line = f"LIMITED {item.current_supply} / {item.max_supply}\n"
+        header = "Ты выбил лимитированную Archive-вещь.\n\n"
+    else:
+        supply_line = ""
+        header = "Дроп получен\n\n"
+
+    return (
+        f"{header}"
+        f"<b>{item.name}</b>\n\n"
+        f"Редкость: {label}\n"
+        f"{supply_line}"
+        f"Начислено: +{prestige_earned} Prestige\n"
+        f"Всего Prestige: {total_prestige}"
+    )
+
+
 @router.message(Command("drop"))
 async def cmd_drop(message: Message, session: AsyncSession):
     user = await session.get(User, message.from_user.id)
@@ -58,18 +79,8 @@ async def cmd_drop(message: Message, session: AsyncSession):
         return
 
     await session.refresh(user)
-    drops_left = max(0, 3 - user.drop_count)
-    emoji = RARITY_EMOJI[item.rarity]
-    label = RARITY_LABEL[item.rarity]
-    prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
-    text = (
-        f"Дроп получен\n\n"
-        f"<b>{item.name}</b>\n\n"
-        f"Еще одна вещь в коллекции. Продолжай собирать гардероб и повышать свой Prestige.\n\n"
-        f"Редкость: {label}\n"
-        f"Начислено: +{prestige_earned} Prestige\n"
-        f"Всего Prestige: {user.prestige}"
-    )
+    await session.refresh(item)
+    text = _format_drop_text(item, user.prestige)
     if item.image_url:
         await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
     else:
@@ -107,20 +118,8 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
         return
 
     await session.refresh(user)
-    drops_left = max(0, 3 - user.drop_count)
-
-    emoji = RARITY_EMOJI[item.rarity]
-    label = RARITY_LABEL[item.rarity]
-    prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
-
-    text = (
-        f"Дроп получен\n\n"
-        f"<b>{item.name}</b>\n\n"
-        f"Еще одна вещь в коллекции. Продолжай собирать гардероб и повышать свой Prestige.\n\n"
-        f"Редкость: {label}\n"
-        f"Начислено: +{prestige_earned} Prestige\n"
-        f"Всего Prestige: {user.prestige}"
-    )
+    await session.refresh(item)
+    text = _format_drop_text(item, user.prestige)
 
     if item.image_url:
         await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=main_menu())
