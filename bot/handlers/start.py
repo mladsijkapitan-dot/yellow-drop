@@ -23,14 +23,19 @@ async def cmd_start(message: Message, session: AsyncSession):
         session.add(user)
         await session.commit()
         text = (
-            f"Добро пожаловать в GRAILZ.\n\n"
-            f"Забирай дропы ✦, собирай редкие вещи ⬛ и обменивайся с другими игроками 🔄\n\n"
-            f"Твой следующий grail может выпасть уже сейчас."
+            f"🌑 GRAIL\n\n"
+            f"┈ Добро пожаловать, {user.first_name} ┈\n\n"
+            f"Твоя коллекция, редкие находки\n"
+            f"и все важные разделы уже здесь.\n\n"
+            f"✦ Выбери, куда перейти ✦"
         )
     else:
         text = (
-            f"С возвращением, {user.first_name}.\n\n"
-            f"Рады снова видеть тебя в GRAILZ."
+            f"🌑 GRAIL\n\n"
+            f"┈ С возвращением, {user.first_name} ┈\n\n"
+            f"Твоя коллекция, редкие находки\n"
+            f"и все важные разделы уже здесь.\n\n"
+            f"✦ Выбери, куда перейти ✦"
         )
 
     await message.answer(text, reply_markup=main_menu())
