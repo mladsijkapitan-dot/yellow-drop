@@ -53,8 +53,7 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
     text = (
         f"👔 Гардероб ({page + 1}/{total})\n\n"
         f"{emoji} <b>{item.name}</b>{lock_badge}\n"
-        f"Редкость: {label}\n\n"
-        f"<i>{item.description}</i>\n\n"
+        f"Редкость: {label}\n"
         f"Получено: {date_str}"
     )
 
