@@ -46,7 +46,7 @@ def is_admin(user_id: int) -> bool:
 def admin_back_keyboard():
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="📋 К списку вещей", callback_data="admin_list:0"))
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
     return builder.as_markup()
 
 
@@ -83,7 +83,7 @@ async def admin_list(callback: CallbackQuery, session: AsyncSession):
 
     if not items:
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+        builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
         await callback.message.edit_text("Вещей нет.", reply_markup=builder.as_markup())
         await callback.answer()
         return
@@ -94,7 +94,7 @@ async def admin_list(callback: CallbackQuery, session: AsyncSession):
 
     builder = InlineKeyboardBuilder()
     for item in page_items:
-        status = "✅" if item.is_active else "❌"
+        status = "✓" if item.is_active else "✖"
         builder.row(InlineKeyboardButton(
             text=f"{status} {item.name} ({item.rarity.value})",
             callback_data=f"admin_item:{item.id}",
@@ -109,7 +109,7 @@ async def admin_list(callback: CallbackQuery, session: AsyncSession):
     if nav:
         builder.row(*nav)
 
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
 
     await callback.message.edit_text(
         f"📋 Все вещи ({len(items)} шт):",
@@ -132,7 +132,7 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
         await callback.answer()
         return
 
-    status = "✅ Активна" if item.is_active else "❌ Скрыта"
+    status = "✓ Активна" if item.is_active else "✖ Скрыта"
     supply_line = ""
     if item.rarity.value == "archive" and item.max_supply is not None:
         supply_line = f"\nЛимит: {item.current_supply} / {item.max_supply}"
@@ -147,12 +147,12 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
     builder.row(InlineKeyboardButton(text="✏️ Редкость", callback_data=f"admin_edit:{item_id}:rarity"))
     photo_text = "🖼 Изменить фото" if item.image_url else "🖼 Добавить фото"
     builder.row(InlineKeyboardButton(text=photo_text, callback_data=f"admin_edit:{item_id}:photo"))
-    toggle_text = "❌ Скрыть из дропа" if item.is_active else "✅ Включить в дроп"
+    toggle_text = "✖ Скрыть из дропа" if item.is_active else "✓ Включить в дроп"
     builder.row(InlineKeyboardButton(text=toggle_text, callback_data=f"admin_toggle:{item_id}"))
     builder.row(InlineKeyboardButton(text="🗑 Удалить", callback_data=f"admin_delete:{item_id}"))
     builder.row(InlineKeyboardButton(text="💀 Удалить из всех гардеробов", callback_data=f"admin_force_delete:{item_id}"))
     builder.row(InlineKeyboardButton(text="◀ К списку", callback_data="admin_list:0"))
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
 
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
     await callback.answer()
@@ -175,7 +175,7 @@ async def admin_toggle(callback: CallbackQuery, session: AsyncSession):
     item.is_active = not item.is_active
     await session.commit()
 
-    status = "включена в дроп ✅" if item.is_active else "скрыта из дропа ❌"
+    status = "включена в дроп ✓" if item.is_active else "скрыта из дропа ✖"
     await callback.answer(f"{item.name} {status}", show_alert=True)
     await admin_item(callback, session)
 
@@ -196,8 +196,8 @@ async def admin_delete(callback: CallbackQuery, session: AsyncSession):
 
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"admin_delete_confirm:{item_id}"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_item:{item_id}"),
+        InlineKeyboardButton(text="✓ Да, удалить", callback_data=f"admin_delete_confirm:{item_id}"),
+        InlineKeyboardButton(text="✖ Отмена", callback_data=f"admin_item:{item_id}"),
     )
     builder.row(InlineKeyboardButton(text="◀ К списку", callback_data="admin_list:0"))
 
@@ -224,7 +224,7 @@ async def admin_force_delete(callback: CallbackQuery, session: AsyncSession):
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="💀 Да, удалить везде", callback_data=f"admin_force_delete_confirm:{item_id}"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_item:{item_id}"),
+        InlineKeyboardButton(text="✖ Отмена", callback_data=f"admin_item:{item_id}"),
     )
 
     await callback.message.edit_text(
@@ -331,7 +331,7 @@ async def admin_edit(callback: CallbackQuery, state: FSMContext):
         await state.update_data(item_id=int(item_id))
         await state.set_state(AddPhoto.waiting)
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_item:{item_id}"))
+        builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data=f"admin_item:{item_id}"))
         await callback.message.answer("Отправь фото для этой вещи:", reply_markup=builder.as_markup())
         await callback.answer()
         return
@@ -341,7 +341,7 @@ async def admin_edit(callback: CallbackQuery, state: FSMContext):
 
     field_names = {"name": "название", "description": "описание"}
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_item:{item_id}"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data=f"admin_item:{item_id}"))
     await callback.message.answer(
         f"Введи новое {field_names.get(field, field)}:",
         reply_markup=builder.as_markup(),
@@ -368,7 +368,7 @@ async def admin_edit_value(message: Message, session: AsyncSession, state: FSMCo
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="◀ К вещи", callback_data=f"admin_item:{item.id}"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
-    await message.answer(f"✅ Обновлено: {message.text.strip()}", reply_markup=builder.as_markup())
+    await message.answer(f"✓ Обновлено: {message.text.strip()}", reply_markup=builder.as_markup())
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("admin_set_rarity:"))
@@ -390,7 +390,7 @@ async def admin_set_rarity(callback: CallbackQuery, session: AsyncSession):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="◀ К вещи", callback_data=f"admin_item:{item_id}"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
-    await callback.message.edit_text("✅ Редкость обновлена.", reply_markup=builder.as_markup())
+    await callback.message.edit_text("✓ Редкость обновлена.", reply_markup=builder.as_markup())
 
 
 # --- Добавить вещь ---
@@ -402,7 +402,7 @@ async def admin_add_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(AddItem.name)
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
     await callback.message.answer("Введи название вещи:", reply_markup=builder.as_markup())
     await callback.answer()
 
@@ -418,7 +418,7 @@ async def admin_add_name(message: Message, state: FSMContext):
     builder = InlineKeyboardBuilder()
     for r in Rarity:
         builder.row(InlineKeyboardButton(text=RARITY_LABEL[r], callback_data=f"admin_pick_rarity:{r.value}"))
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
 
     await message.answer("Выбери редкость:", reply_markup=builder.as_markup())
 
@@ -434,13 +434,13 @@ async def admin_add_rarity(callback: CallbackQuery, state: FSMContext):
     if rarity_val == "archive":
         await state.set_state(AddItem.max_supply)
         builder = InlineKeyboardBuilder()
-        builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+        builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
         await callback.message.answer("Введи лимит выпадения этой Archive-вещи (число, например 50):", reply_markup=builder.as_markup())
     else:
         await state.set_state(AddItem.photo)
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(text="Пропустить фото", callback_data="admin_skip_photo"))
-        builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+        builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
         await callback.message.answer("Отправь фото карточки вещи или пропусти:", reply_markup=builder.as_markup())
     await callback.answer()
 
@@ -469,7 +469,7 @@ async def admin_set_photo(message: Message, session: AsyncSession, state: FSMCon
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="◀ К вещи", callback_data=f"admin_item:{item.id}"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
-    await message.answer(f"✅ Фото для <b>{item.name}</b> сохранено!", parse_mode="HTML", reply_markup=builder.as_markup())
+    await message.answer(f"✓ Фото для <b>{item.name}</b> сохранено!", parse_mode="HTML", reply_markup=builder.as_markup())
 
 
 @router.message(AddItem.max_supply)
@@ -487,7 +487,7 @@ async def admin_add_max_supply(message: Message, state: FSMContext):
 
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="Пропустить фото", callback_data="admin_skip_photo"))
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
     await message.answer(f"Лимит: {text} шт. Теперь отправь фото или пропусти:", reply_markup=builder.as_markup())
 
 
@@ -518,10 +518,10 @@ async def admin_add_photo(message: Message, session: AsyncSession, state: FSMCon
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить ещё", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
     await message.answer_photo(
         file_id,
-        caption=f"✅ Вещь добавлена!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}",
+        caption=f"✓ Вещь добавлена!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}",
         parse_mode="HTML",
         reply_markup=builder.as_markup(),
     )
@@ -548,9 +548,9 @@ async def admin_skip_photo(callback: CallbackQuery, session: AsyncSession, state
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Добавить ещё", callback_data="admin_add"))
     builder.row(InlineKeyboardButton(text="📋 К списку", callback_data="admin_list:0"))
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
     await callback.message.edit_text(
-        f"✅ Вещь добавлена (без фото)!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}",
+        f"✓ Вещь добавлена (без фото)!\n\n<b>{item.name}</b>\n{RARITY_LABEL[item.rarity]}{supply_note}",
         parse_mode="HTML",
         reply_markup=builder.as_markup(),
     )
@@ -564,7 +564,7 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
 
     await state.set_state(Broadcast.waiting_message)
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="admin_menu"))
     await callback.message.answer(
         "Отправь сообщение для рассылки.\n\nМожно текст, фото с подписью или просто фото.",
         reply_markup=builder.as_markup(),
@@ -605,9 +605,9 @@ async def admin_broadcast_send(message: Message, session: AsyncSession, state: F
             failed += 1
 
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="🏠 Меню админа", callback_data="admin_menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню админа", callback_data="admin_menu"))
     await message.answer(
-        f"✅ Рассылка завершена\n\nОтправлено: {sent}\nНе доставлено: {failed}",
+        f"✓ Рассылка завершена\n\nОтправлено: {sent}\nНе доставлено: {failed}",
         reply_markup=builder.as_markup(),
     )
 

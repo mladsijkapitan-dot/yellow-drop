@@ -100,8 +100,8 @@ async def trade_get_username(message: Message, session: AsyncSession, state: FSM
             text=f"{emoji} {ui.item.name} ({RARITY_LABEL[ui.item.rarity]})",
             callback_data=f"pick_recv_item:{ui.id}",
         ))
-    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_trade_flow"))
-    builder.row(InlineKeyboardButton(text="🏠 Меню", callback_data="menu"))
+    builder.row(InlineKeyboardButton(text="✖ Отмена", callback_data="cancel_trade_flow"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
 
     data = await state.get_data()
     await message.answer(
@@ -188,7 +188,7 @@ async def trade_confirm_handler(callback: CallbackQuery, session: AsyncSession):
         pass  # Пользователь мог заблокировать бота
 
     await callback.message.edit_text(
-        f"✅ Трейд отправлен! Ждём ответа.\n\nID трейда: #{result.id}",
+        f"✓ Трейд отправлен! Ждём ответа.\n\nID трейда: #{result.id}",
         reply_markup=back_to_menu(),
     )
     await callback.answer()
@@ -219,7 +219,7 @@ async def trade_accept_handler(callback: CallbackQuery, session: AsyncSession):
     await session.refresh(recv_item, ["item"])
 
     await callback.message.edit_text(
-        f"✅ Трейд принят!\nТы получил: <b>{init_item.item.name}</b>",
+        f"✓ Трейд принят!\nТы получил: <b>{init_item.item.name}</b>",
         parse_mode="HTML",
         reply_markup=back_to_menu(),
     )
@@ -227,7 +227,7 @@ async def trade_accept_handler(callback: CallbackQuery, session: AsyncSession):
     try:
         await callback.bot.send_message(
             chat_id=result.initiator_id,
-            text=f"✅ Твой трейд #{result.id} принят!\nТы получил: <b>{recv_item.item.name}</b>",
+            text=f"✓ Твой трейд #{result.id} принят!\nТы получил: <b>{recv_item.item.name}</b>",
             parse_mode="HTML",
             reply_markup=back_to_menu(),
         )
@@ -248,14 +248,14 @@ async def trade_decline_handler(callback: CallbackQuery, session: AsyncSession):
         return
 
     await callback.message.edit_text(
-        "❌ Трейд отклонён.",
+        "✖ Трейд отклонён.",
         reply_markup=back_to_menu(),
     )
 
     try:
         await callback.bot.send_message(
             chat_id=result.initiator_id,
-            text=f"❌ Трейд #{result.id} отклонён.",
+            text=f"✖ Трейд #{result.id} отклонён.",
             reply_markup=back_to_menu(),
         )
     except Exception:
@@ -279,12 +279,12 @@ async def trade_cancel_handler(callback: CallbackQuery, session: AsyncSession):
         await callback.answer()
         return
 
-    await callback.message.edit_text("✅ Трейд отменён.", reply_markup=back_to_menu())
+    await callback.message.edit_text("✓ Трейд отменён.", reply_markup=back_to_menu())
 
     try:
         await callback.bot.send_message(
             chat_id=result.receiver_id,
-            text=f"❌ Трейд #{result.id} был отменён отправителем.",
+            text=f"✖ Трейд #{result.id} был отменён отправителем.",
             reply_markup=back_to_menu(),
         )
     except Exception:
@@ -322,15 +322,15 @@ async def handle_trades(callback: CallbackQuery, session: AsyncSession):
     for trade in trades:
         if trade.initiator_id == user_id:
             builder.row(InlineKeyboardButton(
-                text=f"❌ Отменить трейд #{trade.id} (исходящий)",
+                text=f"✖ Отменить трейд #{trade.id} (исходящий)",
                 callback_data=f"trade_cancel:{trade.id}",
             ))
         else:
             builder.row(InlineKeyboardButton(
-                text=f"❌ Отклонить трейд #{trade.id} (входящий)",
+                text=f"✖ Отклонить трейд #{trade.id} (входящий)",
                 callback_data=f"trade_decline:{trade.id}",
             ))
-    builder.row(InlineKeyboardButton(text="🏠 Меню", callback_data="menu"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
 
     await callback.message.answer(
         f"Активные трейды ({len(trades)}):",

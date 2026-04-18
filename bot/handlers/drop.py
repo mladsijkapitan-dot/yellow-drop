@@ -110,7 +110,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
             )
         return
 
-    await callback.answer("🎲 Крутим...")
+    await callback.answer("✦ Крутим...")
 
     item = await do_drop(user, session)
     if not item:
