@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.main import after_drop, back_to_menu, main_menu
 from config import RARITY_PRESTIGE
 from db.models import Item, Rarity, User
-from services.drop import do_drop, get_drop_status
+from services.drop import do_drop, get_archive_stats, get_drop_status
 
 router = Router()
 
@@ -36,22 +36,30 @@ def format_time(seconds: int) -> str:
     return f"{s}с"
 
 
-def _format_drop_text(item: Item, total_prestige: int) -> str:
+async def _format_drop_text(item: Item, total_prestige: int, session: AsyncSession) -> str:
     label = RARITY_LABEL[item.rarity]
     prestige_earned = RARITY_PRESTIGE.get(item.rarity.value, 0)
 
-    if item.rarity == Rarity.archive and item.max_supply is not None:
-        supply_line = f"LIMITED {item.current_supply} / {item.max_supply}\n"
-        header = "Ты выбил лимитированную Archive-вещь.\n\n"
-    else:
-        supply_line = ""
-        header = "Дроп получен\n\n"
+    if item.rarity == Rarity.archive:
+        stats = await get_archive_stats(item.id, session)
+        limited_line = f"◈ Limited: {item.current_supply}/{item.max_supply}\n" if item.max_supply is not None else ""
+        return (
+            f"◈ Лови дроп\n\n"
+            f"<b>{item.name}</b>\n\n"
+            f"Тебе выпала лимитированная Archive-карточка.\n"
+            f"Такие вещи встречаются редко и остаются в коллекциях надолго.\n\n"
+            f"Редкость: {label}\n"
+            f"{limited_line}"
+            f"В коллекциях: {stats['in_collections']}\n"
+            f"Редкость среди игроков: {stats['rarity_pct']}%\n"
+            f"Награда: +{prestige_earned} Prestige\n"
+            f"Всего Prestige: {total_prestige}"
+        )
 
     return (
-        f"{header}"
+        f"Дроп получен\n\n"
         f"<b>{item.name}</b>\n\n"
         f"Редкость: {label}\n"
-        f"{supply_line}"
         f"Начислено: +{prestige_earned} Prestige\n"
         f"Всего Prestige: {total_prestige}"
     )
@@ -80,7 +88,7 @@ async def cmd_drop(message: Message, session: AsyncSession):
 
     await session.refresh(user)
     await session.refresh(item)
-    text = _format_drop_text(item, user.prestige)
+    text = await _format_drop_text(item, user.prestige, session)
     if item.image_url:
         await message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=after_drop())
     else:
@@ -119,7 +127,7 @@ async def handle_drop(callback: CallbackQuery, session: AsyncSession):
 
     await session.refresh(user)
     await session.refresh(item)
-    text = _format_drop_text(item, user.prestige)
+    text = await _format_drop_text(item, user.prestige, session)
 
     if item.image_url:
         await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=after_drop())

@@ -1,11 +1,27 @@
 import random
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import DROP_COOLDOWN_HOURS, DROP_MAX_PER_DAY, RARITY_PRESTIGE, RARITY_WEIGHTS
 from db.models import Item, Rarity, User, UserItem
+
+
+async def get_archive_stats(item_id: int, session: AsyncSession) -> dict:
+    """Возвращает кол-во копий в коллекциях и % редкости среди игроков."""
+    in_collections = await session.scalar(
+        select(func.count()).where(UserItem.item_id == item_id)
+    )
+    total_users = await session.scalar(select(func.count()).select_from(User))
+    owners = await session.scalar(
+        select(func.count(UserItem.user_id.distinct())).where(UserItem.item_id == item_id)
+    )
+    if total_users and total_users > 0:
+        rarity_pct = round(owners / total_users * 100, 1)
+    else:
+        rarity_pct = 0.0
+    return {"in_collections": in_collections or 0, "rarity_pct": rarity_pct}
 
 
 def _weighted_rarity() -> Rarity:

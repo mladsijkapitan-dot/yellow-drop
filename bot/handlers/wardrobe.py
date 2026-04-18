@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, wardrobe_nav
 from db.models import Rarity
+from services.drop import get_archive_stats
 from services.trade import get_user_items
 
 router = Router()
@@ -40,14 +41,18 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
     lock_badge = " 🔒" if ui.is_locked else ""
     date_str = ui.obtained_at.strftime("%d.%m")
 
-    limited_line = ""
-    if item.rarity == Rarity.archive and item.max_supply is not None:
-        limited_line = f"\n◈ Limited: {item.current_supply}/{item.max_supply}"
+    archive_lines = ""
+    if item.rarity == Rarity.archive:
+        stats = await get_archive_stats(item.id, session)
+        if item.max_supply is not None:
+            archive_lines += f"\n◈ Limited: {item.current_supply}/{item.max_supply}"
+        archive_lines += f"\n◈ В коллекциях: {stats['in_collections']}"
+        archive_lines += f"\n◈ Редкость среди игроков: {stats['rarity_pct']}%"
 
     text = (
         f"⬛ Гардероб • {page + 1}/{total}\n\n"
         f"<b>{item.name}</b>{lock_badge}\n\n"
-        f"Редкость: {label}{limited_line}\n"
+        f"Редкость: {label}{archive_lines}\n"
         f"Получено: {date_str}"
     )
 
