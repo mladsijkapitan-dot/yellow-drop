@@ -9,8 +9,6 @@ from db.models import User
 
 router = Router()
 
-MEDALS = ["🥇", "🥈", "🥉"]
-
 
 async def leaderboard_text(session: AsyncSession, current_user_id: int) -> str:
     result = await session.execute(
@@ -21,12 +19,11 @@ async def leaderboard_text(session: AsyncSession, current_user_id: int) -> str:
     if not users:
         return "Пока нет игроков в таблице."
 
-    lines = ["✨ <b>Зал Престижа — Топ-10</b>\n"]
+    lines = ["🏛️ <b>Зал Престижа</b>\n"]
     for i, user in enumerate(users):
-        medal = MEDALS[i] if i < 3 else f"{i + 1}."
         name = f"@{user.username}" if user.username else user.first_name
         marker = " ←" if user.id == current_user_id else ""
-        lines.append(f"{medal} {name} — {user.prestige} Prestige{marker}")
+        lines.append(f"{i + 1}. {name} — {user.prestige} Prestige{marker}")
 
     return "\n".join(lines)
 

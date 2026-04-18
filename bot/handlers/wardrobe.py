@@ -8,13 +8,6 @@ from services.trade import get_user_items
 
 router = Router()
 
-RARITY_EMOJI = {
-    Rarity.base: "⚪",
-    Rarity.medium: "🔵",
-    Rarity.archive: "🟣",
-    Rarity.legendary: "🟡",
-}
-
 RARITY_LABEL = {
     Rarity.base: "Base",
     Rarity.medium: "Medium",
@@ -30,10 +23,9 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
 
     if not user_items:
         await callback.message.answer(
-            "Твой гардероб пуст 👔\nПолучи первый дроп!",
+            "Твой гардероб пуст\nПолучи первый дроп!",
             reply_markup=back_to_menu(),
         )
-
         await callback.answer()
         return
 
@@ -41,19 +33,21 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
     page = max(0, min(page, total - 1))
     ui = user_items[page]
 
-    # Загружаем item через relationship
     await session.refresh(ui, ["item"])
     item = ui.item
 
-    emoji = RARITY_EMOJI[item.rarity]
     label = RARITY_LABEL[item.rarity]
     lock_badge = " 🔒" if ui.is_locked else ""
-    date_str = ui.obtained_at.strftime("%d.%m.%Y")
+    date_str = ui.obtained_at.strftime("%d.%m")
+
+    limited_line = ""
+    if item.rarity == Rarity.archive and item.max_supply is not None:
+        limited_line = f"\n◈ Limited: {item.current_supply}/{item.max_supply}"
 
     text = (
-        f"👔 Гардероб ({page + 1}/{total})\n\n"
-        f"{emoji} <b>{item.name}</b>{lock_badge}\n"
-        f"Редкость: {label}\n"
+        f"⬛ Гардероб • {page + 1}/{total}\n\n"
+        f"<b>{item.name}</b>{lock_badge}\n\n"
+        f"Редкость: {label}{limited_line}\n"
         f"Получено: {date_str}"
     )
 
