@@ -52,6 +52,7 @@ class Item(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     max_supply: Mapped[int | None] = mapped_column(Integer, nullable=True)  # None = безлимит
     current_supply: Mapped[int] = mapped_column(Integer, default=0)
+    burned_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class UserItem(Base):

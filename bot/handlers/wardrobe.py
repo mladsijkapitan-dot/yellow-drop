@@ -137,9 +137,14 @@ async def burn_do(callback: CallbackQuery, session: AsyncSession):
         await callback.answer("Вещь заблокирована трейдом 🔒", show_alert=True)
         return
 
-    from db.models import User
+    from db.models import Item, User
     user = await session.get(User, callback.from_user.id)
     user.prestige += BURN_PRESTIGE
+
+    await session.refresh(ui, ["item"])
+    item = await session.get(Item, ui.item_id)
+    if item and item.rarity.value == "archive":
+        item.burned_count += 1
 
     await session.delete(ui)
     await session.commit()

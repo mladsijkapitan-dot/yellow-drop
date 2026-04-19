@@ -139,13 +139,17 @@ async def admin_item(callback: CallbackQuery, session: AsyncSession):
         return
 
     status = "✓ Активна" if item.is_active else "✖ Скрыта"
-    supply_line = ""
-    if item.rarity.value == "archive" and item.max_supply is not None:
-        supply_line = f"\nЛимит: {item.current_supply} / {item.max_supply}"
+    archive_lines = ""
+    if item.rarity.value == "archive":
+        if item.max_supply is not None:
+            exhausted = item.current_supply >= item.max_supply
+            limit_label = "🔒 Лимит исчерпан" if exhausted else f"{item.current_supply} / {item.max_supply}"
+            archive_lines += f"\nВыпало: {limit_label}"
+        archive_lines += f"\nСожгли: {item.burned_count}"
     text = (
         f"📦 <b>{item.name}</b>\n"
         f"Редкость: {RARITY_LABEL[item.rarity]}\n"
-        f"Статус: {status}{supply_line}"
+        f"Статус: {status}{archive_lines}"
     )
 
     builder = InlineKeyboardBuilder()
