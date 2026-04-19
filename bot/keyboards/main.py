@@ -12,6 +12,7 @@ def main_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔄 Трейды", callback_data="trades"),
         InlineKeyboardButton(text="🏛️ Зал Престижа", callback_data="leaderboard"),
     )
+    builder.row(InlineKeyboardButton(text="👁️ Смотреть игроков", callback_data="players"))
     return builder.as_markup()
 
 

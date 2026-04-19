@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
 
-from bot.handlers import admin, drop, leaderboard, start, trade, wardrobe
+from bot.handlers import admin, drop, leaderboard, players, start, trade, wardrobe
 from bot.middlewares.db import DbSessionMiddleware
 from config import BOT_TOKEN
 from db.models import Base
@@ -31,6 +31,7 @@ async def main():
     dp.include_router(wardrobe.router)
     dp.include_router(trade.router)
     dp.include_router(leaderboard.router)
+    dp.include_router(players.router)
     dp.include_router(admin.router)
 
     await bot.set_my_commands([
