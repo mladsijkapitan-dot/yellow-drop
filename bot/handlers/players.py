@@ -37,6 +37,7 @@ async def handle_players(callback: CallbackQuery, session: AsyncSession):
             text=f"👤 {name}",
             callback_data=f"player_profile:{user.id}",
         ))
+    builder.row(InlineKeyboardButton(text="⬅️ Назад", callback_data="leaderboard"))
     builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
 
     try:
