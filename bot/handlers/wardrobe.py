@@ -1,9 +1,10 @@
 from aiogram import Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main import back_to_menu, wardrobe_nav
-from db.models import Rarity
+from db.models import Rarity, UserItem
 from services.drop import get_archive_stats
 from services.trade import get_user_items
 
@@ -15,6 +16,25 @@ RARITY_LABEL = {
     Rarity.archive: "Archive",
     Rarity.legendary: "Legendary",
 }
+
+BURN_PRESTIGE = 100
+
+
+def _wardrobe_keyboard(page: int, total: int, ui_id: int, is_archive: bool, is_locked: bool):
+    builder = InlineKeyboardBuilder()
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="◀", callback_data=f"wardrobe:{page - 1}"))
+    nav.append(InlineKeyboardButton(text=f"{page + 1}/{total}", callback_data="noop"))
+    if page < total - 1:
+        nav.append(InlineKeyboardButton(text="▶", callback_data=f"wardrobe:{page + 1}"))
+    builder.row(*nav)
+    if not is_locked:
+        builder.row(InlineKeyboardButton(text="🔄 Предложить трейд", callback_data=f"trade_init:{page}"))
+        if is_archive:
+            builder.row(InlineKeyboardButton(text="◈ Сжечь Archive", callback_data=f"burn_confirm:{ui_id}:{page}"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
+    return builder.as_markup()
 
 
 @router.callback_query(lambda c: c.data and c.data.startswith("wardrobe:"))
@@ -56,24 +76,86 @@ async def handle_wardrobe(callback: CallbackQuery, session: AsyncSession):
         f"Получено: {date_str}"
     )
 
+    keyboard = _wardrobe_keyboard(page, total, ui.id, item.rarity == Rarity.archive, ui.is_locked)
+
     if item.image_url:
         try:
             await callback.message.delete()
         except Exception:
             pass
-        await callback.message.answer_photo(
-            item.image_url,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=wardrobe_nav(page, total),
-        )
+        await callback.message.answer_photo(item.image_url, caption=text, parse_mode="HTML", reply_markup=keyboard)
     else:
         try:
-            await callback.message.edit_text(
-                text,
-                parse_mode="HTML",
-                reply_markup=wardrobe_nav(page, total),
-            )
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
         except Exception:
-            await callback.message.answer(text, parse_mode="HTML", reply_markup=wardrobe_nav(page, total))
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("burn_confirm:"))
+async def burn_confirm(callback: CallbackQuery, session: AsyncSession):
+    _, ui_id, page = callback.data.split(":")
+    ui = await session.get(UserItem, int(ui_id))
+    if not ui or ui.user_id != callback.from_user.id:
+        await callback.answer("Вещь не найдена.", show_alert=True)
+        return
+    if ui.is_locked:
+        await callback.answer("Вещь заблокирована трейдом 🔒", show_alert=True)
+        return
+
+    await session.refresh(ui, ["item"])
+
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✓ Сжечь", callback_data=f"burn_do:{ui_id}:{page}"),
+        InlineKeyboardButton(text="✖ Отмена", callback_data=f"wardrobe:{page}"),
+    )
+
+    text = (
+        f"◈ Сжечь Archive\n\n"
+        f"Вы действительно хотите сжечь эту Archive-вещь?\n\n"
+        f"<b>{ui.item.name}</b>\n\n"
+        f"После сжигания она навсегда исчезнет из вашей коллекции.\n\n"
+        f"Награда: +{BURN_PRESTIGE} Prestige"
+    )
+
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=builder.as_markup())
+    await callback.answer()
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("burn_do:"))
+async def burn_do(callback: CallbackQuery, session: AsyncSession):
+    _, ui_id, page = callback.data.split(":")
+    ui = await session.get(UserItem, int(ui_id))
+    if not ui or ui.user_id != callback.from_user.id:
+        await callback.answer("Вещь не найдена.", show_alert=True)
+        return
+    if ui.is_locked:
+        await callback.answer("Вещь заблокирована трейдом 🔒", show_alert=True)
+        return
+
+    from db.models import User
+    user = await session.get(User, callback.from_user.id)
+    user.prestige += BURN_PRESTIGE
+
+    await session.delete(ui)
+    await session.commit()
+
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="⬛ Гардероб", callback_data=f"wardrobe:{max(0, int(page) - 1)}"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
+
+    text = (
+        f"Вещь выведена из активных коллекций.\n\n"
+        f"Получено: +{BURN_PRESTIGE} Prestige\n"
+        f"Всего Prestige: {user.prestige}"
+    )
+
+    try:
+        await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    except Exception:
+        await callback.message.answer(text, reply_markup=builder.as_markup())
     await callback.answer()
