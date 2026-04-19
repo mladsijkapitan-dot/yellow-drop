@@ -1,13 +1,20 @@
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.main import back_to_menu
 from db.models import User
 
 router = Router()
+
+
+def leaderboard_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="👁️ Смотреть игроков", callback_data="players"))
+    builder.row(InlineKeyboardButton(text="🌑 Меню", callback_data="menu"))
+    return builder.as_markup()
 
 
 async def leaderboard_text(session: AsyncSession, current_user_id: int) -> str:
@@ -31,11 +38,11 @@ async def leaderboard_text(session: AsyncSession, current_user_id: int) -> str:
 @router.message(Command("top"))
 async def cmd_top(message: Message, session: AsyncSession):
     text = await leaderboard_text(session, message.from_user.id)
-    await message.answer(text, parse_mode="HTML", reply_markup=back_to_menu())
+    await message.answer(text, parse_mode="HTML", reply_markup=leaderboard_keyboard())
 
 
 @router.callback_query(lambda c: c.data == "leaderboard")
 async def handle_leaderboard(callback: CallbackQuery, session: AsyncSession):
     text = await leaderboard_text(session, callback.from_user.id)
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_to_menu())
+    await callback.message.answer(text, parse_mode="HTML", reply_markup=leaderboard_keyboard())
     await callback.answer()
